@@ -1,5 +1,5 @@
 import setuptools
-from packagename.version import Version
+from utils_cm_toolbox.version import Version
 
 
 setuptools.setup(name='utils_cm_toolbox',

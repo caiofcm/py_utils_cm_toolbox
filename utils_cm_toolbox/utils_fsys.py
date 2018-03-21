@@ -1,4 +1,5 @@
 import os
+import sys
 ############################################
 ###########################################
 #
@@ -12,3 +13,5 @@ import os
 
 def getFileDir():
 	return os.path.dirname(os.path.abspath(__file__))
+
+# def #CREATE RELATIVE IMPORT FUNCTION TODO

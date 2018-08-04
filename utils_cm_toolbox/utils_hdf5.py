@@ -17,6 +17,10 @@ def save_dict_to_hdf5(dic, filename):
 		recursively_save_dict_contents_to_group(h5file, '/', dic)
 	pass
 
+def save_dict_to_open_file(dic, fstream):
+	recursively_save_dict_contents_to_group(fstream, '/', dic)
+	pass
+
 
 def load_dict_from_hdf5(filename):
 	with h5py.File(filename, 'r') as h5file:
@@ -30,7 +34,13 @@ def load_dict_from_hdf5_listing(filename):
 	pass
 
 
-def recursively_save_dict_contents_to_group(h5file, path, dic):
+def recursively_save_dict_contents_to_group(h5file, path, dic,
+			opts = {}):
+
+	if 'np_single_column' not in opts:
+		opts['np_single_column'] = False
+	if 'remove_zero_size' not in opts:
+		opts['remove_zero_size'] = False
 
 	# argument type checking
 	if not isinstance(dic, dict):
@@ -58,19 +68,29 @@ def recursively_save_dict_contents_to_group(h5file, path, dic):
 					'The data representation in the HDF5 file does not match the original dict.')
 		# save numpy arrays
 		elif isinstance(item, np.ndarray):
-			# print(key)
-			if key is 'extra':
-				aaaa = 1
-			if isinstance(item[0], np.ndarray) and item[0].size > 0:
-				for j, vl in enumerate(item):
-					recursively_save_dict_contents_to_group(h5file,
-                                             path + key + '/', {str(j): vl})
+			if len(item) == 0:
+				if opts['remove_zero_size']:
+					pass
+				else:
+					h5file[path + key] = item
 			else:
-				try:
-					h5file[path + key] = item
-				except:
-					item = np.array(item).astype('|S9')
-					h5file[path + key] = item
+				if opts['np_single_column']:
+					if isinstance(item[0], np.ndarray) and item[0].size > 0:
+						for j, vl in enumerate(item):
+							recursively_save_dict_contents_to_group(h5file,
+													path + key + '/', {str(j): vl})
+					else:
+						try:
+							h5file[path + key] = item
+						except:
+							item = np.array(item).astype('|S9')
+							h5file[path + key] = item
+				else: #CONNECT TO FORMER IF (JUST FOR REFEREEENCE)
+						try:
+							h5file[path + key] = item
+						except:
+							item = np.array(item).astype('|S9')
+							h5file[path + key] = item
 				# if not np.array_equal(h5file[path + key].value, item):
 				# 	raise ValueError('The data representation in the HDF5 file does not match the original dict.')
 		# save dictionaries
@@ -80,6 +100,8 @@ def recursively_save_dict_contents_to_group(h5file, path, dic):
 		else:
 			#print(item)
 			raise ValueError('Cannot save %s type.' % type(item))
+
+	pass
 
 
 def recursively_load_dict_contents_from_group(h5file, path):

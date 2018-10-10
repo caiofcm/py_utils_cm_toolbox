@@ -96,6 +96,8 @@ def recursively_save_dict_contents_to_group(h5file, path, dic,
 		# save dictionaries
 		elif isinstance(item, dict):
 			recursively_save_dict_contents_to_group(h5file, path + key + '/', item)
+		elif isinstance(item, np.bytes_):
+			h5file[path + key] = item			
 		# other types cannot be saved and will result in an error
 		else:
 			#print(item)

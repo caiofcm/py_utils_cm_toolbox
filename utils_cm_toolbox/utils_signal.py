@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def generate_gbn(tspan: np.ndarray, 
         lower_vals: np.ndarray,
         upper_vals: np.ndarray,

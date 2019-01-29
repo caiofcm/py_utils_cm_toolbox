@@ -13,7 +13,7 @@ except ImportError:
 #	 REGULARIZATION FUNCTION ARCTAN
 ###########################################
 ############################################
-@if_decorator(numba.njit, USE_NUMBA)
+@if_decorator(USE_NUMBA, numba.njit)
 def regularization_func(x, A0, A1, xEvent, psi):
     """Perform the regularization of a step using tanh
 
@@ -27,6 +27,7 @@ def regularization_func(x, A0, A1, xEvent, psi):
     reg = A0 + (A1-A0)/2.0*(np.tanh((x - xEvent)*psi) + 1.0)
     return reg
 
+@if_decorator(USE_NUMBA, numba.njit)
 def regularization_mult_func(x, A0, Aspan, xEspan, psi):
     """Perform the regularization of step train using tanh function.
     - It can be compiled with numba - Use: jit_regularization_funcs
@@ -104,7 +105,6 @@ def step_rk3lmMOD(t0, h, y, fun, rhs, arg = None):
 
 import matplotlib.pyplot as plt
 def eval_regularization():
-    jit_regularization_funcs()
     plt.figure()
     xspan = np.linspace(0, 200, 501)
     Ai = [10.0, 5.0]

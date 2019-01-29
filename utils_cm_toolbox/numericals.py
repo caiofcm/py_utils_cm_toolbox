@@ -1,5 +1,6 @@
 import numpy as np
 from collections.abc import Iterable
+from utils_cm_toolbox.misc import if_decorator
 try:
     import numba
     USE_NUMBA = True
@@ -12,6 +13,7 @@ except ImportError:
 #	 REGULARIZATION FUNCTION ARCTAN
 ###########################################
 ############################################
+@if_decorator(numba.njit, USE_NUMBA)
 def regularization_func(x, A0, A1, xEvent, psi):
     """Perform the regularization of a step using tanh
 
@@ -58,11 +60,11 @@ def regularization_mult_func(x, A0, Aspan, xEspan, psi):
         Apast = Aspan[i]
     return reg
 
-def jit_regularization_funcs():
-    global regularization_func, regularization_mult_func
-    regularization_func = numba.njit(regularization_func)
-    regularization_mult_func = numba.njit(regularization_mult_func)
-    return
+# def jit_regularization_funcs():
+#     # global regularization_func, regularization_mult_func
+#     regularization_func = numba.njit(regularization_func)
+#     regularization_mult_func = numba.njit(regularization_mult_func)
+#     return
 
 
 ############################################

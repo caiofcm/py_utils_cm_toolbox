@@ -1,6 +1,10 @@
 import numpy as np
 from collections.abc import Iterable
-import numba
+try:
+    import numba
+    USE_NUMBA = True
+except ImportError:
+    USE_NUMBA = False
 
 ############################################
 ###########################################
@@ -8,7 +12,6 @@ import numba
 #	 REGULARIZATION FUNCTION ARCTAN
 ###########################################
 ############################################
-@numba.njit()
 def regularization_func(x, A0, A1, xEvent, psi):
     """Perform the regularization of a step using tanh
 
@@ -22,9 +25,10 @@ def regularization_func(x, A0, A1, xEvent, psi):
     reg = A0 + (A1-A0)/2.0*(np.tanh((x - xEvent)*psi) + 1.0)
     return reg
 
-@numba.njit()
 def regularization_mult_func(x, A0, Aspan, xEspan, psi):
-    """Perform the regularization of step train using tanh
+    """Perform the regularization of step train using tanh function.
+    - It can be compiled with numba - Use: jit_regularization_funcs
+
     Inputs:
         - x: array
         - A0: scalar of initial value
@@ -53,6 +57,12 @@ def regularization_mult_func(x, A0, Aspan, xEspan, psi):
         reg = reg + regularization_func(x, 0, Aspan[i]-Apast, v, psi[i])
         Apast = Aspan[i]
     return reg
+
+def jit_regularization_funcs():
+    global regularization_func, regularization_mult_func
+    regularization_func = numba.njit(regularization_func)
+    regularization_mult_func = numba.njit(regularization_mult_func)
+    return
 
 
 ############################################
@@ -92,6 +102,7 @@ def step_rk3lmMOD(t0, h, y, fun, rhs, arg = None):
 
 import matplotlib.pyplot as plt
 def eval_regularization():
+    jit_regularization_funcs()
     plt.figure()
     xspan = np.linspace(0, 200, 501)
     Ai = [10.0, 5.0]

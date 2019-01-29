@@ -1,5 +1,6 @@
 import numpy as np
 from collections.abc import Iterable
+import numba
 
 ############################################
 ###########################################
@@ -7,6 +8,7 @@ from collections.abc import Iterable
 #	 REGULARIZATION FUNCTION ARCTAN
 ###########################################
 ############################################
+@numba.njit()
 def regularization_func(x, A0, A1, xEvent, psi):
     """Perform the regularization of a step using tanh
 
@@ -20,9 +22,14 @@ def regularization_func(x, A0, A1, xEvent, psi):
     reg = A0 + (A1-A0)/2.0*(np.tanh((x - xEvent)*psi) + 1.0)
     return reg
 
+@numba.njit()
 def regularization_mult_func(x, A0, Aspan, xEspan, psi):
     """Perform the regularization of step train using tanh
-    
+    Inputs:
+        - x: array
+        - A0: scalar of initial value
+        - xEspan: array of events times
+        - psi: array of smoothing factor
     Example:
         plt.figure()
         xspan = linspace(0, 50, 501)
@@ -33,13 +40,18 @@ def regularization_mult_func(x, A0, Aspan, xEspan, psi):
         plt.title('Multiple step reg function')
         plt.show()
     """
-    if not isinstance(psi, Iterable):
-        psi = np.ones_like(Aspan) * psi
-    reg = A0
+    # reg= A0
+    # Apast = A0
+    # for A, xE, ps in zip(Aspan, xEspan, psi):
+    #     reg = reg + regularization_func(x, 0, A-Apast, xE, ps)
+    #     Apast = A
+
+    reg= A0
     Apast = A0
-    for A, xE, ps in zip(Aspan, xEspan, psi):
-        reg = reg + regularization_func(x, 0, A-Apast, xE, ps)
-        Apast = A
+    reg = np.ones_like(x) * A0
+    for i, v in enumerate(xEspan):
+        reg = reg + regularization_func(x, 0, Aspan[i]-Apast, v, psi[i])
+        Apast = Aspan[i]
     return reg
 
 
@@ -77,3 +89,18 @@ def step_rk3lmMOD(t0, h, y, fun, rhs, arg = None):
     y[:] = y + rk33lm.B3*k
 
     return y
+
+import matplotlib.pyplot as plt
+def eval_regularization():
+    plt.figure()
+    xspan = np.linspace(0, 200, 501)
+    Ai = [10.0, 5.0]
+    xEi = [25.0, 100.0]
+    psi = [0.5, 0.05]
+    y = regularization_mult_func(xspan, 0.0, Ai, xEi, psi)
+    plt.plot(xspan, y)
+    plt.title('Multiple step reg function for Aggregation Kernel')
+    plt.show()    
+
+if __name__ == "__main__":
+    eval_regularization()

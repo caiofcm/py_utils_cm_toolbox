@@ -1,5 +1,6 @@
 .vscode/
 .pytest_cache/
+*.h5
 
 *.py[cod]
 .python-version

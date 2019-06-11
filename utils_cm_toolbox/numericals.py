@@ -8,10 +8,9 @@ except ImportError:
     USE_NUMBA = False
 
 ############################################
-###########################################
-#
+############################################
 #	 REGULARIZATION FUNCTION ARCTAN
-###########################################
+############################################
 ############################################
 @if_decorator(USE_NUMBA, numba.njit)
 def regularization_func(x, A0, A1, xEvent, psi):
@@ -80,10 +79,9 @@ def eval_regularization():
 
 
 ############################################
-###########################################
-#
+############################################
 #	 RUNGE KUTTA 3ORDER LOW MEMORY
-###########################################
+############################################
 ############################################
 class rk33lm:
     A2 = -5.0/9.0
@@ -116,14 +114,13 @@ def step_rk3lmMOD(t0, h, y, fun, rhs, arg = None):
 
 
 ############################################
-###########################################
-#
+############################################
 #	 B-SPLINE IMPLEMENTATION
 #Ref: http://www.lce.hut.fi/teaching/S-114.1100/lect_6.pdf p 29
-###########################################
+############################################
 ############################################
 
-@numba.njit()
+@if_decorator(USE_NUMBA, numba.njit)
 def b_spline_coeff(t: np.ndarray, y: np.ndarray):
     """Calculates b-spline coefficients
     
@@ -165,7 +162,7 @@ def b_spline_coeff(t: np.ndarray, y: np.ndarray):
     
     return a, h
 
-@numba.njit()
+@if_decorator(USE_NUMBA, numba.njit)
 def b_spline_intervals(t):
     n = len(t) - 1 #n: number of intervals
     h = np.empty(n+2)
@@ -174,7 +171,7 @@ def b_spline_intervals(t):
     h[-1] = h[-2]
     return h
 
-@numba.njit()
+@if_decorator(USE_NUMBA, numba.njit)
 def b_spline_eval(t: np.ndarray, a: np.ndarray, h: np.ndarray, x: float):
     """Evaluate the b-spline
     
@@ -211,6 +208,187 @@ def b_spline_eval(t: np.ndarray, a: np.ndarray, h: np.ndarray, x: float):
 
     return result
 
+############################################
+############################################
+#	 FSOLVE WITH JACOBIAN
+############################################
+############################################
+
+@numba.njit(cache=True)
+def root_finding_newton(fun, J, x, eps, max_iter, args):
+    """
+    Solve nonlinear system fun(x)=0 by Newton's method.
+    J is the Jacobian of fun(x). Both fun(x) and J must be functions of x.
+    At input, x holds the start value. The iteration continues
+    until ||F|| < eps.
+    """
+    F_value = fun(x, args)
+    F_value_ = F_value.reshape((-1,1))
+    F_norm = np.linalg.norm(F_value, 2)  # l2 norm of vector
+    iteration_counter = 0
+    while abs(F_norm) > eps and iteration_counter < max_iter:
+        delta = np.linalg.solve(J(x, args), -F_value_)
+
+        for i in range(x.size): #wtf numba!?!?!
+            x[i] += delta[i,0]
+
+        F_value = fun(x, args)
+        F_value_ = F_value.reshape((-1,1))
+        F_norm = np.linalg.norm(F_value, 2)
+        iteration_counter += 1
+
+    # Here, either a solution is found, or too many iterations
+    if abs(F_norm) > eps:
+        iteration_counter = -1
+        raise ValueError('Maximum iteration reached in newton root finding!')
+    return x, iteration_counter
+
+@numba.njit(cache=True)
+def numeric_jacobian(fun, x, diff_eps, args):
+    J = np.zeros((len(x), len(x)))
+    for i in range(len(x)):
+        x1 = x.copy()
+        x2 = x.copy()
+        x1[i] += diff_eps
+        x2[i] -= diff_eps
+        f1 = fun(x1, args)
+        f2 = fun(x2, args)
+        J[:, i] = (f1 - f2) / (2 * diff_eps)
+
+    return J
+
+def create_jacobian(fun):
+
+    @numba.njit()
+    def numba_J(x, args):
+        return numeric_jacobian(fun, x, 1e-8, args)
+    return numba_J
+
+
+@numba.njit(cache=True)
+def root_finding_newton_previously(fun, J, x, eps, max_iter, args):
+    """
+    Solve nonlinear system fun(x)=0 by Newton's method.
+    J is the Jacobian of fun(x). Both fun(x) and J must be functions of x.
+    At input, x holds the start value. The iteration continues
+    until ||F|| < eps.
+    """
+    F_value = fun(x, args)
+    F_value_ = F_value.reshape((-1,1))
+    F_norm = np.linalg.norm(F_value, 2)  # l2 norm of vector
+    iteration_counter = 0
+    while abs(F_norm) > eps and iteration_counter < max_iter:
+        delta = np.linalg.solve(J(x, args), -F_value)
+        x = x + delta
+        F_value = fun(x, args)
+        F_value_ = F_value.reshape((-1,1))
+        F_norm = np.linalg.norm(F_value, 2)
+        iteration_counter += 1
+
+    # Here, either a solution is found, or too many iterations
+    if abs(F_norm) > eps:
+        iteration_counter = -1
+        raise ValueError('Maximum iteration reached in newton root finding!')
+    return x, iteration_counter
+
+@numba.njit #(cache=True)
+def brents(f, x0, x1, max_iter=50, tolerance=1e-5):
+    """Brents Method for onedimensional fsolve
+
+    Ref: https://nickcdryan.com/2017/09/13/root-finding-algorithms-in-python-line-search-bisection-secant-newton-raphson-boydens-inverse-quadratic-interpolation-brents/
+    
+    Parameters
+    ----------
+    f : callable
+        Function
+    x0 : float
+        Lower Bound
+    x1 : float
+        Upper Bound
+    max_iter : int, optional
+        Maximum number of iteration, by default 50
+    tolerance : float, optional
+        by default 1e-5
+    
+    Returns
+    -------
+    Tuple
+        (x solution, number of steps)
+    """
+ 
+    fx0 = f(x0)
+    fx1 = f(x1)
+ 
+    assert (fx0 * fx1) <= 0, "Root not bracketed" 
+ 
+    if abs(fx0) < abs(fx1):
+        x0, x1 = x1, x0
+        fx0, fx1 = fx1, fx0
+ 
+    x2, fx2 = x0, fx0
+ 
+    d = np.nan
+    mflag = True
+    steps_taken = 0
+ 
+    while steps_taken < max_iter and abs(x1-x0) > tolerance:
+        fx0 = f(x0)
+        fx1 = f(x1)
+        fx2 = f(x2)
+ 
+        if fx0 != fx2 and fx1 != fx2:
+            L0 = (x0 * fx1 * fx2) / ((fx0 - fx1) * (fx0 - fx2))
+            L1 = (x1 * fx0 * fx2) / ((fx1 - fx0) * (fx1 - fx2))
+            L2 = (x2 * fx1 * fx0) / ((fx2 - fx0) * (fx2 - fx1))
+            new = L0 + L1 + L2
+ 
+        else:
+            new = x1 - ( (fx1 * (x1 - x0)) / (fx1 - fx0) )
+ 
+        tt1 = (new < ((3 * x0 + x1) / 4) or new > x1)
+        tt2 = (mflag == True and (abs(new - x1)) >= (abs(x1 - x2) / 2))
+        tt3 = (mflag == False and (abs(new - x1)) >= (abs(x2 - d) / 2))
+        tt4 = (mflag == True and (abs(x1 - x2)) < tolerance)
+        tt5 = (mflag == False and (abs(x2 - d)) < tolerance)
+        if (tt1 or
+            tt2 or
+            tt3 or
+            tt4 or
+            tt5):
+            new = (x0 + x1) / 2
+            mflag = True
+ 
+        else:
+            mflag = False
+ 
+        fnew = f(new)
+        d, x2 = x2, x1
+ 
+        if (fx0 * fnew) < 0:
+            x1 = new
+        else:
+            x0 = new
+ 
+        if abs(fx0) < abs(fx1):
+            x0, x1 = x1, x0
+ 
+        steps_taken += 1
+ 
+    return x1, steps_taken
+
+############################################
+############################################
+#	 INTEGRATION
+############################################
+############################################
+
+@if_decorator(USE_NUMBA, numba.njit)
+def integr_simpson(fun, xa, xb, args):
+    fa = fun(xa, args)
+    fb = fun(xb, args)
+    fm = fun(0.5*(xa+xb), args)
+    I = (xb-xa)/2.0*(fa + 4.0*fm + fb)
+    return I
 
 
 if __name__ == "__main__":

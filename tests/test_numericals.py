@@ -1,5 +1,6 @@
 import pytest
 import numpy as np
+import numba
 from utils_cm_toolbox import numericals
 import matplotlib.pyplot as plt
 
@@ -53,6 +54,22 @@ def case_testing_b_spline():
     plt.plot(T_REF, Y_REF, 'dr')
     print(coefs)
     plt.show()    
+
+
+######
+# Brents
+######
+@numba.njit
+def f(x):
+    return x**2 - 20
+
+def test_brents():
+
+    root, steps = numericals.brents(f, 2, 5, tolerance=10e-5)
+    print("root is:", root)
+    print("steps taken:", steps)
+    assert(np.isclose(root, np.sqrt(20.0)))
+    assert(steps < 50)
 
 if __name__ == "__main__":
     # case_testing_b_spline()

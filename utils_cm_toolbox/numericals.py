@@ -222,7 +222,7 @@ def root_finding_newton(fun, J, x, eps, max_iter, args):
     At input, x holds the start value. The iteration continues
     until ||F|| < eps.
     """
-    F_value = fun(x, args)
+    F_value = fun(x, *args)
     F_value_ = F_value.reshape((-1,1))
     F_norm = np.linalg.norm(F_value, 2)  # l2 norm of vector
     iteration_counter = 0
@@ -232,7 +232,7 @@ def root_finding_newton(fun, J, x, eps, max_iter, args):
         for i in range(x.size): #wtf numba!?!?!
             x[i] += delta[i,0]
 
-        F_value = fun(x, args)
+        F_value = fun(x, *args)
         F_value_ = F_value.reshape((-1,1))
         F_norm = np.linalg.norm(F_value, 2)
         iteration_counter += 1
@@ -251,8 +251,8 @@ def numeric_jacobian(fun, x, diff_eps, args):
         x2 = x.copy()
         x1[i] += diff_eps
         x2[i] -= diff_eps
-        f1 = fun(x1, args)
-        f2 = fun(x2, args)
+        f1 = fun(x1, *args)
+        f2 = fun(x2, *args)
         J[:, i] = (f1 - f2) / (2 * diff_eps)
 
     return J

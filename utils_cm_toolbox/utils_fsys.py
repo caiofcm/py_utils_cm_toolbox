@@ -1,6 +1,8 @@
 import os
 import sys
 import importlib
+import json
+import numpy as np
 ############################################
 ###########################################
 #
@@ -25,3 +27,10 @@ def relative_import(mod_name, rel_path):
     rel = get_relative_dir(rel_path)
     sys.path.append(rel)
     return importlib.import_module(mod_name)
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj): #pylint: disable=method-hidden
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)    
